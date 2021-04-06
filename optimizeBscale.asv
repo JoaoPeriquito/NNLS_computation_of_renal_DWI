@@ -1,0 +1,55 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Joao Periquito & Thomas Gladytz
+% 20.05.07 (b-value optimization for NNLS & LS simulations)  
+%
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Description:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% For each b-value, Rician noise was added to the signal. The signal was 
+% then fitted using the NNLS implementation and the common non-linear least 
+% square fitting routine (LS). The process was repeated N=500 times for each 
+% variation: 
+% - physiological condition (baseline and increased ftubules), 
+% - b-value range (small range [0-800 mm2/s] and large range [0-2500 mm2/s]) 
+% - SNR [40 80 120 160 200 280 360 440 520 640 760 880 1000] 
+% - number of b-values [10 15 20 25 30 35 40 45 50] . 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Variables and Descriptions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% - decayparamsForOpt - parameters of the tri-exponential. should contain 
+% the weights of the exponentials as first column and decay rates as second 
+% column
+% 
+% e.g. [frac_fastOpt diff_fast; frac_medOpt diff_med; frac_slowOpt diff_slow]
+% diff_fast   = 0.180;
+% diff_med    = 0.0058;
+% diff_slow   = 0.0015;
+% frac_fastOpt = 0.075;
+% frac_medOpt = 0.40;
+% frac_slowOpt = 0.525;
+%
+% - numB - desired number of b-values
+%
+% - input variables:
+%   - decayparamsForOpt
+%   - numB
+% - output variables:
+%   - bscale - optimized b-scale
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [bscale] = optimizeBscale(decayparamsForOpt,numB)
+  % [bscale] = optimizeBscale([0.08 0.18; 0.52 0.0058; 0.4 0.0015],30);
+  if sum(decayparamsForOpt(:,1))~=1;
+    warning('The weights of the exponentials should sum to 1.')
+  end
+  
+  iniScaleEnd = -log(1./numB)./min(decayparamsForOpt(:,2));
+  iniScaleStep = -log(1-1./numB)./max(decayparamsForOpt(:,2));
+  iniBscale=(0:sqrt(iniScaleStep):sqrt(iniScaleEnd)).^2; % quadratic scale with much to many values for a start.
+  intensityScale=1:(-1./numB):(1./numB);
+  decay=sum(repmat(decayparamsForOpt(:,1),1,length(iniBscale)).*exp(-decayparamsForOpt(:,2)*iniBscale),1);
+  bscale =round(interp1(decay,iniBscale,intensityScale));
+  decay2=sum(repmat(decayparamsForOpt(:,1),1,numB).*exp(-decayparamsForOpt(:,2)*bscale),1);
+end
